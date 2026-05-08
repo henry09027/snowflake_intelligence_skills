@@ -85,6 +85,7 @@ Other constraints:
 3. Do **not** apply additional filters (sector, market cap, token-count thresholds, etc.) unless the user explicitly asks. The skill returns the unconditional top-20 by similarity for the requested year.
 4. Do **not** interpret a low cosine similarity as a directional signal (bullish/bearish). It only flags magnitude of change.
 5. Do **not** silently fall back to a different year if `{YEAR}` returns fewer than 20 rows — return whatever rows match and say so in the narration.
+6. Do **not** output anything other than the required table. I want a clean and professional output.
 
 ---
 
