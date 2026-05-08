@@ -377,9 +377,3 @@ Direct SQL access is reserved for the view definition above. The skill's prompts
 | Chart still fails after a valid SQL contract | Failure is in the chart layer, not SQL | Surface the raw result table to the user with a one-line note. Do not retry more than twice. |
 
 ---
-
-## Changelog
-
-- **4.0.0** (2026-05-08): Pivot to Cortex-Analyst-only execution. Replaced "do not use Cortex Analyst" rule with a Cortex Analyst Prompt Library (literal NL strings per case). Added Expected SQL Contracts for output validation. Switched all column casing to UPPERCASE to match Cortex Analyst's Snowflake default. Added Semantic Model Setup section covering verified queries, base-table hiding, and synonyms. Removed quoted-lowercase aliases from view definition.
-- **3.0.0**: Rigid execution procedure, deterministic `bucket_order` column, intent → query → chart spec lookup. Assumed a generic SQL-execution tool was available.
-- **2.1.0**: Initial dynamic-year filtering version.
