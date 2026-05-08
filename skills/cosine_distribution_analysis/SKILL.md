@@ -13,11 +13,14 @@ Returns a flat, chart-ready tabular result set (similarity buckets × fiscal yea
 ### Step 1 — Send the literal prompt string to Cortex Analyst
 Pass the matching prompt from the **Cortex Analyst Prompt Library** below to Cortex Analyst **verbatim**, with `{YEAR}` / `{YEAR_LIST}` substituted. Do not paraphrase. Do not "improve" the prompt. The exact phrasing has been tuned to coerce Cortex Analyst into producing SQL that conforms to the *Expected SQL Contracts* section.
 
-### Step 2 — Pass the result directly to the chart tool
+### Step 2 — Display the data in a table
+Use the template from the *Output Table Form*.
+
+### Step 3 — Pass the result directly to the chart tool
 Use the spec from the *Chart Spec Library*. Field names in the spec are **UPPERCASE** to match Cortex Analyst's default Snowflake column-name folding. Do not rename, re-case, or post-process columns.
 
-### Step 3 — Narrate in ≤ 4 sentences
-State (i) total filing count, (ii) the modal bucket, (iii) the share of filings at similarity ≥ 0.98, (iv) any year-over-year shift if Case B. Do not enumerate every bucket.
+### Step 4 — Narrate in ≤ 4 bullet point sentences
+State (i) total filing count, (ii) the shape of the distribution, (iii) interesting observations from the buckets. Do not enumerate every bucket.
 
 ---+
 
@@ -100,12 +103,19 @@ Other constraints:
 
 ---
 
-## ❌ DO NOT
+## Output Table Form
 
-1. **Do not call any stored procedure. Procedures emit JSON-wrapped VARIANT, which the chart tool cannot bind to a tabular schema.
-2. **Do not rephrase the prompts in the *Cortex Analyst Prompt Library*.** Their wording is load-bearing.
-3. **Do not include the synthetic `'Other'` bucket** in charts. It captures floating-point artifacts (similarity > 1.0) that distract from the true distribution.
-4. **Do not lowercase or quote-wrap column names** in the chart spec. Cortex Analyst returns Snowflake-default UPPERCASE; chart specs must match.
+| Column | Type | Description |
+|--------|------|-------------|
+| `SIMILARITY_BUCKET` | STRING | Ordered bucket label, e.g. `'[0.90, 0.95)'` |
+| `BUCKET_ORDER` | INT | Integer 1–8 for deterministic ordinal sorting |
+| `FISCAL_YEAR` | INT | Year extracted from `next_perioddate` |
+| `FILING_COUNT` | INT | Filings in this (bucket × year) cell |
+| `MIN_SIMILARITY` | FLOAT | Min cosine similarity in cell |
+| `MAX_SIMILARITY` | FLOAT | Max cosine similarity in cell |
+| `AVG_SIMILARITY` | FLOAT | Mean cosine similarity in cell |
+| `MIN_NEXT_PERIODDATE` | DATE | Earliest filing date in cell |
+| `MAX_NEXT_PERIODDATE` | DATE | Latest filing date in cell |
 
 ---
 
@@ -135,6 +145,16 @@ Other constraints:
   }
 }
 ```
+
+---
+
+## ❌ DO NOT
+
+1. **Do not call any stored procedure.** Procedures emit JSON-wrapped VARIANT, which the chart tool cannot bind to a tabular schema.
+2. **Do not rephrase the prompts in the *Cortex Analyst Prompt Library*.** Their wording is load-bearing.
+3. **Do not include the synthetic `'Other'` bucket** in charts. It captures floating-point artifacts (similarity > 1.0) that distract from the true distribution.
+4. **Do not lowercase or quote-wrap column names** in the chart spec. Cortex Analyst returns Snowflake-default UPPERCASE; chart specs must match.
+
 ---
 
 ## Source Table
