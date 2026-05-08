@@ -1,6 +1,6 @@
 ---
 name: risk-changes-detail
-description: For a single company and fiscal year, surface which specific risk factors were added in the current 10-K and which were removed compared to the prior year. Use as a follow-up to the changers-statistics skill — once a portfolio manager has identified a high-change company, this skill drills into the actual text to show what changed. Triggers: "what changed for company X", "show me the added/removed risks for {company}", "diff the risk section for {company} in {year}", or any drill-in request after a changer leaderboard.
+description: For a single company and fiscal year, surface which specific risk factors were added in the current 10-K and which were removed compared to the prior year. Use as a follow-up to the changers-statistics skill, once a portfolio manager has identified a high-change company, this skill drills into the actual text to show what changed. Triggers: "what changed for company X", "show me the added/removed risks for {company}", "diff the risk section for {company} in {year}", or any drill-in request after a changer leaderboard.
 ---
 
 ## Objective
