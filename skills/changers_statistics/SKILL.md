@@ -21,16 +21,6 @@ Pass the prompt from the **Cortex Analyst Prompt Library** below to Cortex Analy
 
 Use the column mapping in the **Output Table Form** section. Format `LM_COSINE_SIMILARITY` to 4 decimal places. Format `RISK_ADDED_REMOVED_FLAG` values as the human-readable strings in the mapping table (e.g. `RISK_ADDED` → "Risk Added").
 
-### Step 3 — Narrate in ≤ 4 sentences
-
-State, in this order:
-1. The fiscal year and how many companies are shown (≤ 20).
-2. The lowest cosine similarity in the result set and the company it belongs to.
-3. The sector that appears most frequently among the changers, with its count.
-4. The split between Risk Added / Risk Removed / Unchanged across the returned rows.
-
-Do not enumerate every company in prose — the table already does that.
-
 ---
 
 ## 🗣️ Cortex Analyst Prompt Library
