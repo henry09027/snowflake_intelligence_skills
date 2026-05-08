@@ -22,7 +22,7 @@ Use the spec from the *Chart Spec Library*. Field names in the spec are **UPPERC
 ### Step 4 — Narrate in ≤ 4 bullet point sentences
 State (i) total filing count, (ii) the shape of the distribution, (iii) interesting observations from the buckets. Do not enumerate every bucket.
 
----+
+---
 
 ## 🗣️ CORTEX ANALYST PROMPT LIBRARY
 
