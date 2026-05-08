@@ -4,124 +4,118 @@
 - **Skill Name**: Cosine Distribution Analysis
 - **Version**: 1.0.0
 - **Created**: 2026-05-08
-- **Language**: Python (Snowflake Snowpark)
-- **Runtime**: Python 3.9
+- **Language**: SQL (Snowflake View)
+- **Type**: Analytical View
 
 ## Objective
-Analyzes the distribution of cosine similarity scores for filings in a given year by bucketing similarities into predefined ranges and computing aggregate statistics (count, min, max, average) for each bucket.
+Analyzes the distribution of cosine similarity scores by bucketing similarities into predefined ranges and computing aggregate statistics (count, min, max, average) for each bucket. Results are returned as a tabular SQL result set compatible with Snowflake Intelligence charting and visualization tools.
 
-## Input Parameters
-- **year_input** (INT): The year for which to analyze cosine similarity distribution
+## Output Schema
+Returns a table with the following columns:
 
-## Output
-Returns a VARIANT (array of objects) containing distribution buckets with the following structure:
+| Column | Type | Description |
+|--------|------|-------------|
+| similarity_bucket | STRING | Ordered bucket category (e.g., '1. Below 0.90', '2. 0.90 to 0.95', etc.) |
+| filing_count | INT | Number of filings in this bucket |
+| min_cosine_similarity | FLOAT | Minimum cosine similarity value in bucket |
+| max_cosine_similarity | FLOAT | Maximum cosine similarity value in bucket |
+| avg_cosine_similarity | FLOAT | Average cosine similarity value in bucket |
+| min_next_perioddate | DATE | Earliest filing period date in bucket |
+| max_next_perioddate | DATE | Latest filing period date in bucket |
 
-```json
-[
-  {
-    "similarity_bucket": "string (e.g., '[0.90, 0.95)')",
-    "filing_count": "number of filings in this bucket",
-    "min_similarity": "minimum cosine similarity in bucket",
-    "max_similarity": "maximum cosine similarity in bucket",
-    "avg_similarity": "average cosine similarity in bucket"
-  }
-]
-```
-
-## Procedure Definition
+## View Definition
 
 ```sql
-CREATE OR REPLACE PROCEDURE QRSLLM_POC_DB.HENRY_SCHEMA.GET_COSINE_SIMILARITY_DISTRIBUTION(YEAR_INPUT INT)
-RETURNS VARIANT
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.9'
-PACKAGES = ('snowflake-snowpark-python')
-HANDLER = 'main'
-EXECUTE AS OWNER
-AS $$
-def main(session, year_input: int):
-    from snowflake.snowpark.functions import col, when, count, min, max, avg, year, lit
-    base_table = "QRSLLM_POC_DB.HENRY_SCHEMA.master_fin_period_filingid_yoy_risk_sp500_lmcountdict_sector_cleaned"
-    df = (
-        session.table(base_table)
-        .filter(
-            (year(col("next_perioddate")) == year_input) &
-            (col("lm_cosine_similarity").is_not_null())
-        )
-        .with_column(
-            "similarity_bucket",
-            when(col("lm_cosine_similarity") < 0.90,  lit("[0.0, 0.90)"))
-            .when(col("lm_cosine_similarity") < 0.95,  lit("[0.90, 0.95)"))
-            .when(col("lm_cosine_similarity") < 0.97,  lit("[0.95, 0.97)"))
-            .when(col("lm_cosine_similarity") < 0.98,  lit("[0.97, 0.98)"))
-            .when(col("lm_cosine_similarity") < 0.99,  lit("[0.98, 0.99)"))
-            .when(col("lm_cosine_similarity") < 0.995, lit("[0.99, 0.995)"))
-            .when(col("lm_cosine_similarity") < 0.999, lit("[0.995, 0.999)"))
-            .when(col("lm_cosine_similarity") <= 1.01, lit("[0.999, 1.0]"))
-            .otherwise(lit("Other"))
-        )
-        .group_by("similarity_bucket")
-        .agg(
-            count("*").alias("filing_count"),
-            min(col("lm_cosine_similarity")).alias("min_similarity"),
-            max(col("lm_cosine_similarity")).alias("max_similarity"),
-            avg(col("lm_cosine_similarity")).alias("avg_similarity"),
-        )
-        .sort("similarity_bucket")
-    )
-    rows = df.collect()
-    result = [
-        {
-            "similarity_bucket": row["SIMILARITY_BUCKET"],
-            "filing_count":      row["FILING_COUNT"],
-            "min_similarity":    row["MIN_SIMILARITY"],
-            "max_similarity":    row["MAX_SIMILARITY"],
-            "avg_similarity":    row["AVG_SIMILARITY"],
-        }
-        for row in rows
-    ]
-    return result
-$$;
+CREATE OR REPLACE VIEW QRSLLM_POC_DB.HENRY_SCHEMA.V_GET_COSINE_SIMILARITY_DISTRIBUTION AS
+SELECT
+  CASE
+    WHEN lm_cosine_similarity < 0.90
+    THEN '1. Below 0.90'
+    WHEN lm_cosine_similarity >= 0.90 AND lm_cosine_similarity < 0.95
+    THEN '2. 0.90 to 0.95'
+    WHEN lm_cosine_similarity >= 0.95 AND lm_cosine_similarity < 0.97
+    THEN '3. 0.95 to 0.97'
+    WHEN lm_cosine_similarity >= 0.97 AND lm_cosine_similarity < 0.98
+    THEN '4. 0.97 to 0.98'
+    WHEN lm_cosine_similarity >= 0.98 AND lm_cosine_similarity < 0.99
+    THEN '5. 0.98 to 0.99'
+    WHEN lm_cosine_similarity >= 0.99 AND lm_cosine_similarity < 0.995
+    THEN '6. 0.99 to 0.995'
+    WHEN lm_cosine_similarity >= 0.995 AND lm_cosine_similarity < 0.999
+    THEN '7. 0.995 to 0.999'
+    WHEN lm_cosine_similarity >= 0.999 AND lm_cosine_similarity <= 1.0
+    THEN '8. 0.999 to 1.0'
+    ELSE '9. Other'
+  END AS similarity_bucket,
+  COUNT(*) AS filing_count,
+  MIN(lm_cosine_similarity) AS min_cosine_similarity,
+  MAX(lm_cosine_similarity) AS max_cosine_similarity,
+  AVG(lm_cosine_similarity) AS avg_cosine_similarity,
+  MIN(next_perioddate) AS min_next_perioddate,
+  MAX(next_perioddate) AS max_next_perioddate
+FROM QRSLLM_POC_DB.HENRY_SCHEMA.master_fin_period_filingid_yoy_risk_sp500_lmcountdict_sector_cleaned
+WHERE
+  lm_cosine_similarity IS NOT NULL
+GROUP BY
+  similarity_bucket
+ORDER BY
+  similarity_bucket ASC;
 ```
 
 ## Usage Examples
 
-### Basic Call
+### Query the View Directly
 ```sql
-CALL QRSLLM_POC_DB.HENRY_SCHEMA.GET_COSINE_SIMILARITY_DISTRIBUTION(2024);
+SELECT * FROM QRSLLM_POC_DB.HENRY_SCHEMA.V_GET_COSINE_SIMILARITY_DISTRIBUTION;
 ```
 
-### Flattening Results into a Table
+### Filter by Year
+```sql
+SELECT * 
+FROM QRSLLM_POC_DB.HENRY_SCHEMA.V_GET_COSINE_SIMILARITY_DISTRIBUTION
+WHERE YEAR(max_next_perioddate) = 2025;
+```
+
+### Get Total Filing Count
 ```sql
 SELECT 
-    f.value:similarity_bucket::STRING as similarity_bucket,
-    f.value:filing_count::INT as filing_count,
-    f.value:min_similarity::FLOAT as min_similarity,
-    f.value:max_similarity::FLOAT as max_similarity,
-    f.value:avg_similarity::FLOAT as avg_similarity
-FROM TABLE(FLATTEN(INPUT => QRSLLM_POC_DB.HENRY_SCHEMA.GET_COSINE_SIMILARITY_DISTRIBUTION(2024))) f;
+  SUM(filing_count) as total_filings,
+  COUNT(*) as num_buckets
+FROM QRSLLM_POC_DB.HENRY_SCHEMA.V_GET_COSINE_SIMILARITY_DISTRIBUTION;
+```
+
+### Analyze High Similarity Filings
+```sql
+SELECT 
+  SUM(filing_count) as high_similarity_count,
+  AVG(avg_cosine_similarity) as avg_similarity
+FROM QRSLLM_POC_DB.HENRY_SCHEMA.V_GET_COSINE_SIMILARITY_DISTRIBUTION
+WHERE similarity_bucket >= '5. 0.98 to 0.99';
 ```
 
 ## Similarity Buckets Reference
 
-| Bucket | Range | Description |
-|--------|-------|-------------|
-| [0.0, 0.90) | Very Low | Similarity scores below 90% |
-| [0.90, 0.95) | Low | Similarity scores 90-95% |
-| [0.95, 0.97) | Medium-Low | Similarity scores 95-97% |
-| [0.97, 0.98) | Medium | Similarity scores 97-98% |
-| [0.98, 0.99) | Medium-High | Similarity scores 98-99% |
-| [0.99, 0.995) | High | Similarity scores 99-99.5% |
-| [0.995, 0.999) | Very High | Similarity scores 99.5-99.9% |
-| [0.999, 1.0] | Extremely High | Similarity scores 99.9-100% |
+| Bucket | Range | Description | Interpretation |
+|--------|-------|-------------|-----------------|
+| 1. Below 0.90 | < 0.90 | Very Low | Significant changes in risk language |
+| 2. 0.90 to 0.95 | [0.90, 0.95) | Low | Substantial language differences |
+| 3. 0.95 to 0.97 | [0.95, 0.97) | Medium-Low | Moderate language changes |
+| 4. 0.97 to 0.98 | [0.97, 0.98) | Medium | Some language variation |
+| 5. 0.98 to 0.99 | [0.98, 0.99) | Medium-High | Minor language changes |
+| 6. 0.99 to 0.995 | [0.99, 0.995) | High | Minimal language differences |
+| 7. 0.995 to 0.999 | [0.995, 0.999) | Very High | Nearly identical language |
+| 8. 0.999 to 1.0 | [0.999, 1.0] | Extremely High | Virtually no language change |
+| 9. Other | > 1.0 | Out of Range | Edge cases/data anomalies |
 
 ## Key Metrics
 
-- **similarity_bucket**: Categorizes cosine similarity into discrete ranges for distribution analysis
+- **similarity_bucket**: Categorizes cosine similarity into 9 discrete ranges for distribution analysis with numeric prefix for proper ordering
 - **filing_count**: Number of filings that fall within each similarity bucket
-- **min_similarity**: Minimum cosine similarity value observed in the bucket
-- **max_similarity**: Maximum cosine similarity value observed in the bucket
-- **avg_similarity**: Average (mean) cosine similarity value in the bucket
+- **min_cosine_similarity**: Minimum cosine similarity value observed in the bucket
+- **max_cosine_similarity**: Maximum cosine similarity value observed in the bucket
+- **avg_cosine_similarity**: Average (mean) cosine similarity value in the bucket
+- **min_next_perioddate**: Earliest filing date in bucket for temporal analysis
+- **max_next_perioddate**: Latest filing date in bucket for temporal analysis
 
 ## Data Requirements
 
@@ -131,14 +125,24 @@ FROM TABLE(FLATTEN(INPUT => QRSLLM_POC_DB.HENRY_SCHEMA.GET_COSINE_SIMILARITY_DIS
 - Table: `master_fin_period_filingid_yoy_risk_sp500_lmcountdict_sector_cleaned`
 
 ### Required Columns
-- `next_perioddate` (DATE/TIMESTAMP): Filing period date used for year filtering
+- `next_perioddate` (DATE/TIMESTAMP): Filing period date for temporal analysis
 - `lm_cosine_similarity` (FLOAT): Cosine similarity score (typically between 0 and 1)
+
+## Key Features
+
+1. **Tabular Result Set**: Returns results as a standard SQL table compatible with Snowflake Intelligence charting
+2. **Null Handling**: Automatically filters out rows where `lm_cosine_similarity` is NULL
+3. **Ordered Buckets**: Numeric prefixes (1-9) ensure proper sorting in visualizations
+4. **Aggregated Statistics**: Provides min, max, average, and count for each bucket
+5. **Temporal Data**: Includes min/max date ranges for each bucket for time-series analysis
+6. **Performance**: View-based approach provides efficient querying and caching benefits
+7. **Easy Integration**: Direct SQL view that works seamlessly with BI tools and Snowflake Intelligence
 
 ## Notes
 
-1. **Null Handling**: The procedure filters out rows where `lm_cosine_similarity` is NULL
-2. **Year Filtering**: Only filings from the specified year are included (based on `next_perioddate`)
-3. **Bucket Boundaries**: The last bucket includes values up to 1.01 to accommodate potential floating-point precision issues
-4. **Sorting**: Results are sorted by similarity bucket for logical progression through ranges
-5. **Performance**: Consider adding indexes on `next_perioddate` and `lm_cosine_similarity` for large datasets
-6. **Ownership**: Procedure executes as OWNER for data access privileges
+1. The numeric prefixes in bucket names ensure correct alphabetical sorting
+2. All buckets are grouped and aggregated regardless of year (use WHERE clause filters for specific years)
+3. The view is read-only and automatically updates as source data changes
+4. Results are directly compatible with charting tools without additional transformation
+5. For year-specific analysis, apply WHERE clause to `min_next_perioddate` or `max_next_perioddate`
+6. Consider adding indexes on `next_perioddate` and `lm_cosine_similarity` in source table for better performance with large datasets
